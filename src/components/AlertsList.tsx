@@ -135,7 +135,7 @@ export default function AlertsList({ companyId, userId }: AlertsListProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div className="glass-effect-light rounded-xl border border-slate-700/50 p-6">
       <div className="flex items-center gap-2 mb-6">
         <Bell className="w-5 h-5 text-cyan-400" />
         <h2 className="text-xl font-semibold text-white">Alerts & Notifications</h2>

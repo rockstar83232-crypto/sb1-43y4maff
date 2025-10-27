@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase, Company } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Upload, FileText, Loader } from 'lucide-react';
+import * as pdfjsLib from 'pdfjs-dist';
 
 export default function ReportUpload() {
   const { user } = useAuth();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [extracting, setExtracting] = useState(false);
   const [formData, setFormData] = useState({
     company_id: '',
     title: '',
@@ -20,6 +22,8 @@ export default function ReportUpload() {
 
   useEffect(() => {
     loadCompanies();
+    // Configure PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
   }, []);
 
   const loadCompanies = async () => {
@@ -36,16 +40,55 @@ export default function ReportUpload() {
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    setExtracting(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n\n';
+      }
+
+      return fullText;
+    } catch (error) {
+      console.error('Error extracting PDF text:', error);
+      throw new Error('Failed to extract text from PDF');
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
+    try {
+      let text = '';
+
+      if (file.type === 'application/pdf') {
+        text = await extractTextFromPDF(file);
+      } else {
+        const reader = new FileReader();
+        text = await new Promise<string>((resolve, reject) => {
+          reader.onload = (event) => {
+            resolve(event.target?.result as string);
+          };
+          reader.onerror = reject;
+          reader.readAsText(file);
+        });
+      }
+
       setFormData({ ...formData, report_text: text });
-    };
-    reader.readAsText(file);
+    } catch (error: any) {
+      alert('Error reading file: ' + error.message);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -226,31 +269,41 @@ export default function ReportUpload() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Upload Report File (Text/CSV)
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              Upload Report File (PDF, Text, or CSV)
             </label>
             <div className="mt-2 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-700 border-dashed rounded-lg hover:border-emerald-500 bg-slate-800/30 transition-all duration-200">
               <div className="space-y-1 text-center">
-                <Upload className="mx-auto h-12 w-12 text-slate-500" />
-                <div className="flex text-sm text-slate-400">
-                  <label className="relative cursor-pointer bg-transparent rounded-md font-medium text-emerald-400 hover:text-emerald-300">
-                    <span>Upload a file</span>
-                    <input
-                      type="file"
-                      className="sr-only"
-                      accept=".txt,.csv"
-                      onChange={handleFileUpload}
-                    />
-                  </label>
-                  <p className="pl-1">or drag and drop</p>
-                </div>
-                <p className="text-xs text-slate-500">TXT or CSV up to 10MB</p>
+                {extracting ? (
+                  <>
+                    <Loader className="mx-auto h-12 w-12 text-emerald-400 animate-spin" />
+                    <p className="text-sm text-emerald-400">Extracting text from PDF...</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mx-auto h-12 w-12 text-slate-500" />
+                    <div className="flex text-sm text-slate-400">
+                      <label className="relative cursor-pointer bg-transparent rounded-md font-medium text-emerald-400 hover:text-emerald-300">
+                        <span>Upload a file</span>
+                        <input
+                          type="file"
+                          className="sr-only"
+                          accept=".pdf,.txt,.csv"
+                          onChange={handleFileUpload}
+                          disabled={extracting}
+                        />
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
+                    </div>
+                    <p className="text-xs text-slate-500">PDF, TXT or CSV up to 10MB</p>
+                  </>
+                )}
               </div>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium text-slate-300 mb-1">
               Or Paste Report Text *
             </label>
             <textarea
@@ -260,6 +313,7 @@ export default function ReportUpload() {
               rows={10}
               className="w-full px-4 py-2 bg-slate-800/50 border border-slate-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent font-mono text-sm transition-all duration-200"
               placeholder="Paste the report text here..."
+              disabled={extracting}
             />
             <p className="mt-1 text-sm text-slate-400">
               {formData.report_text.length} characters

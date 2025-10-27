@@ -98,7 +98,7 @@ export default function ESGHeatmap({ companyId }: ESGHeatmapProps) {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div className="glass-effect-light rounded-xl border border-slate-700/50 p-6">
       <div className="flex items-center gap-2 mb-6">
         <Activity className="w-5 h-5 text-cyan-400" />
         <h2 className="text-xl font-semibold text-white">ESG Indicator Heatmap</h2>

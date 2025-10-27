@@ -206,6 +206,14 @@ export default function Dashboard() {
             </div>
           </>
         )}
+
+        <div className="mt-12 glass-effect-light rounded-xl border border-slate-700/50 p-8">
+          <h2 className="text-2xl font-bold text-white mb-4">About Us</h2>
+          <div className="text-slate-300 space-y-2">
+            <p className="text-lg font-semibold text-emerald-400">Team Kaiser</p>
+            <p>Made by Divyansh Thosar and Saimanikanta Pothamsetti</p>
+          </div>
+        </div>
       </div>
     </div>
   );
